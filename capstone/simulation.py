@@ -93,7 +93,7 @@ def informing(force, phi, who_correct, w_informed, rightdir, tau_info, tau):
     idx = np.where(who_correct==1)[0]
     for id in idx:
         force[id] = (1-w_informed)*force[id] +\
-            w_informed * periodic_phi(rightdir - phi[id]) *tau_info/tau
+            w_informed * periodic_phi(rightdir - phi[id]) *tau/tau_info
     return force
 
 @njit
@@ -179,7 +179,7 @@ def run(tau,noise,informed_ratio,simtime,logname=None,count=1000,firststep=0,k=3
     
     #assign logname
     if not logname: 
-        string = f'tau{np.round(tau,3)}_noise{np.round(noise,3)}_r{informed_ratio}_simtime{simtime}_k{k}_N{N}_w{w_informed}_iter1'
+        string = f'tau{np.round(tau,3)}_noise{np.round(noise,3)}_r{informed_ratio}_simtime{simtime}_k{k}_N{N}_w{w_informed}_tauinfo_{tau_info}_iter1'
         logname = string.replace('.','d')
         while os.path.exists(logname): #if logname exists, add a number
             #print(f"logname exists {logname}, adding iter")
