@@ -170,7 +170,7 @@ def calc_cluster_timeseries(output, params):
     mlist = []
     slist = []
     stepping = list(output['steps'].unique())
-    for s in stepping[-len(stepping)/3::10]:
+    for s in stepping[int(len(stepping)/5)::10]:
         nbs,pos = recalc_nbs(output=output,params=params,step=s) 
         graph = build_graph(nbs,params['N'])
         digraphs= build_clusters(graph)
@@ -185,7 +185,7 @@ def calc_cluster_stat(output, params):
     fig,ax=plt.subplots()
     ax.clear()
     ax.plot(nowm)
-    plt.xlabel("time")
+    plt.xlabel("step")
     plt.ylabel("average cluster polarization")
     plt.title(f"average cluster polarization over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
     plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_polarization.png")
@@ -193,7 +193,7 @@ def calc_cluster_stat(output, params):
 
     ax.clear()
     plt.plot(nows)
-    plt.xlabel("time")
+    plt.xlabel("step")
     plt.ylabel("average cluster size")
     plt.title(f"average cluster size over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
     plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_size.png")
