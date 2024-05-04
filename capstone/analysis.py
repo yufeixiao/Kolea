@@ -42,22 +42,23 @@ def calc_polarity_step(output,params,step):
     mean = calculate_polarization(phis)
     return mean
 
-def calc_polarity_stat(output,params):
+def calc_polarity_stat(output,params,plot):
     """plot the timeseries and calculate the average stat from every 10th opint after 1/4 time burn-in"""
     means = [] 
     for s in output['steps'].unique():
         mean_s = calc_polarity_step(output,params,step=s)
         means.append(mean_s)
     
-    fig,ax=plt.subplots()
-    ax.plot(means)
-    ax.set_title(f"Global polarization over time\nTau_social:{params['tau']},Tau_info:{params['tau_info']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-    plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_polarization.png")
-    plt.show()
-    ax.clear()
+    if plot:
+        fig,ax=plt.subplots()
+        ax.plot(means)
+        ax.set_title(f"Global polarization over time\nTau_social:{params['tau']},Tau_info:{params['tau_info']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
+        plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_polarization.png")
+        plt.show()
+        ax.clear()
 
     #if params['simtime']>=10000: #no more
-    print("global polarization mean:",np.average(means[int(len(means)/4):])) #every 10th TO JUSTIFY
+    return np.average(means[int(len(means)/4):])
 
 #animation 
 import numpy as np
@@ -179,31 +180,34 @@ def calc_cluster_timeseries(output, params):
         slist.append(sizesavg)
     return mlist, slist
 
-def calc_cluster_stat(output, params):
+def calc_cluster_stat(output, params,plot):
     """plot timeseries of cluster polar and cluster size, return point averages"""
     nowm,nows = calc_cluster_timeseries(output, params)
-    fig,ax=plt.subplots()
-    ax.clear()
-    ax.plot(nowm)
-    plt.xlabel("step")
-    plt.ylabel("average cluster polarization")
-    plt.title(f"average cluster polarization over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-    plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_polarization.png")
-    plt.show()
+    if plot: 
+            fig,ax=plt.subplots()
+            ax.clear()
+            ax.plot(nowm)
+            plt.xlabel("step")
+            plt.ylabel("average cluster polarization")
+            plt.title(f"average cluster polarization over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
+            plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_polarization.png")
+            plt.show()
 
-    ax.clear()
-    plt.plot(nows)
-    plt.xlabel("step")
-    plt.ylabel("average cluster size")
-    plt.title(f"average cluster size over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-    plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_size.png")
-    plt.show()
+            ax.clear()
+            plt.plot(nows)
+            plt.xlabel("step")
+            plt.ylabel("average cluster size")
+            plt.title(f"average cluster size over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
+            plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_size.png")
+            plt.show()
     return np.mean(nowm), np.mean(nows)
 
-def analyze_pipe(logname):
+def analyze_pipe(logname,plot=False):
     """save figures and return point statistics for global polar, cluster polar, mean cluster size, and animation"""
     output,params = load_data_new(logname = logname)
-    clusterpolar,clustersize = calc_cluster_stat(output,params)
-    globalpolar = calc_polarity_stat(output,params) 
-    ani(logname,output,params)
+    clusterpolar,clustersize = calc_cluster_stat(output,params,plot=plot)
+    globalpolar = calc_polarity_stat(output,params,plot=plot) 
+    if plot:
+        ani(logname,output,params)
+    
     return params,globalpolar,clusterpolar,clustersize
