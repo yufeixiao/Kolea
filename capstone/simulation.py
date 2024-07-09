@@ -14,8 +14,27 @@ from matplotlib.colors import Normalize
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 import csv
-import analysis 
 import networkx as nx 
+
+#from analysis 
+def build_graph(nbs,N):
+    """make graph from interactions"""
+    #TODO mark the informed individuals.
+    agentlist = np.arange(N)
+    graph=nx.DiGraph()
+    graph.add_nodes_from(agentlist)
+    for agent in range(N):
+        for v in nbs[agent]:
+            graph.add_edge(agent,v)
+            #nbs[v].remove(agent) #remove duplicate links if undirected graph
+    return graph
+
+def calculate_polarization(phis):
+    """find the mean angle of particles"""
+    x_sum = np.sum(np.cos(phis))
+    y_sum = np.sum(np.sin(phis))
+    magnitude = np.sqrt(x_sum**2 + y_sum**2)/len(phis)
+    return magnitude
 
 #TODO: change sigmadt -> noise
 
@@ -173,11 +192,20 @@ class Simulation:
         self.pos,self.v=update_vpos(phi_comp=phi_comp,size=self.size,speed=self.speed,dt=self.dt,pos=self.pos)
 
         #calc order params 
-        global_polar = analysis.calculate_polarization(self.phi)
-        graph = analysis.build_graph(nbs,self.N)
+        global_polar = calculate_polarization(self.phi)
+        graph = build_graph(nbs,self.N)
         digraphs = [graph.subgraph(c).copy() for c in nx.weakly_connected_components(graph)]
-        cluster_polar = np.average([self.phi[self.phi['id'].isin(list(digraph.nodes))] for digraph in digraphs])
-        cluster_size = np.average([digraph.number_of_nodes() for digraph in digraphs])
+        means = []
+        sizes = []
+        for digraph in digraphs:
+            members = list(digraph.nodes)
+            phis =self.phi[members]
+            mean = calculate_polarization(phis)
+            means.append(mean)
+            size = digraph.number_of_nodes()
+            sizes.append(size)
+        cluster_polar = np.mean(means)
+        cluster_size = np.mean(sizes)
 
         return [global_polar,cluster_polar,cluster_size]
 
