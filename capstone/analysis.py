@@ -11,6 +11,7 @@ import matplotlib.animation as animation
 import pandas as pd
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
+import os #for directory
 
 def load_data_new(logname):
     """load parameters and position, angle data with informed individual indices"""
@@ -42,7 +43,7 @@ def calc_polarity_step(output,params,step):
     mean = calculate_polarization(phis)
     return mean
 
-def calc_polarity_stat(output,params,plot):
+def calc_polarity_stat(output,params,logname,plot):
     """plot the timeseries and calculate the average stat from every 10th opint after 1/4 time burn-in"""
     means = [] 
     for s in output['steps'].unique():
@@ -52,8 +53,8 @@ def calc_polarity_stat(output,params,plot):
     if plot:
         fig,ax=plt.subplots()
         ax.plot(means)
-        ax.set_title(f"Global polarization over time\nTau_social:{params['tau']},Tau_info:{params['tau_info']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-        plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_polarization.png")
+        ax.set_title(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_polarization")
+        plt.savefig(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_polarization.png")
         plt.show()
         ax.clear()
 
@@ -106,7 +107,7 @@ def ani(logname,output,params):
                      head_width=0.04, head_length=0.04, 
                      color=color)
         ax.set_xlabel(f"Simulation time: {np.round(frame*params['tau']/10,3)}") #count in simulation time 
-        ax.set_title(f"{logname}\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
+        ax.set_title(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']} animation")
 
     ani = FuncAnimation(fig, update, frames=fr, blit=False, repeat=False)
     ani.save(f'{logname}.gif', writer='pillow')
@@ -180,7 +181,7 @@ def calc_cluster_timeseries(output, params):
         slist.append(sizesavg)
     return mlist, slist
 
-def calc_cluster_stat(output, params,plot):
+def calc_cluster_stat(output, params,logname,plot):
     """plot timeseries of cluster polar and cluster size, return point averages"""
     nowm,nows = calc_cluster_timeseries(output, params)
     if plot: 
@@ -189,25 +190,42 @@ def calc_cluster_stat(output, params,plot):
             ax.plot(nowm)
             plt.xlabel("step")
             plt.ylabel("average cluster polarization")
-            plt.title(f"average cluster polarization over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-            plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_polarization.png")
+            ax.set_title(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_cluster_polarization.png")
+            plt.savefig(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_cluster_polarization.png")
             plt.show()
 
             ax.clear()
-            plt.plot(nows)
+            ax.plot(nows)
             plt.xlabel("step")
             plt.ylabel("average cluster size")
-            plt.title(f"average cluster size over time\nTau:{params['tau']},Noise:{params['noise']},Informed:{params['informed_ratio']}")
-            plt.savefig(f"{params['tau']}_{params['noise']}_{params['informed_ratio']}_cluster_size.png")
+            ax.set_title(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_clustersize.png")
+            plt.savefig(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_clustersize.png")
             plt.show()
     return np.mean(nowm), np.mean(nows)
 
 def analyze_pipe(logname,plot=False):
     """save figures and return point statistics for global polar, cluster polar, mean cluster size, and animation"""
     output,params = load_data_new(logname = logname)
-    clusterpolar,clustersize = calc_cluster_stat(output,params,plot=plot)
-    globalpolar = calc_polarity_stat(output,params,plot=plot) 
+    clusterpolar,clustersize = calc_cluster_stat(output,params,logname,plot=plot)
+    globalpolar = calc_polarity_stat(output,params,logname,plot=plot) 
     if plot:
         ani(logname,output,params)
     
-    return params,globalpolar,clusterpolar,clustersize
+    return [params['tau'],params['tau_info'],params['informed_ratio'],params['w_informed'],globalpolar,clusterpolar,clustersize]
+    #return params,globalpolar,clusterpolar,clustersize
+
+
+def dir_to_lognames(directory):
+    lognames = []
+    for filename in os.listdir(directory):
+        if not filename == '.DS_Store':
+            logname = os.path.join(directory, filename)
+            lognames.append(logname)
+    return lognames 
+
+def analyze_batch(lognames):
+    stats = [] 
+    for logname in lognames:
+        data = analyze_pipe(logname,plot=False)
+        stats.append(data)
+        print(data)
