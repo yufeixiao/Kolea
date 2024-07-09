@@ -14,6 +14,8 @@ from matplotlib.colors import Normalize
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 import csv
+import analysis 
+import networkx as nx 
 
 #TODO: change sigmadt -> noise
 
@@ -169,7 +171,15 @@ class Simulation:
         phi_comp=np.array([np.cos(self.phi),np.sin(self.phi)]).transpose()
         #update v and pos based on force and phi
         self.pos,self.v=update_vpos(phi_comp=phi_comp,size=self.size,speed=self.speed,dt=self.dt,pos=self.pos)
-        return
+
+        #calc order params 
+        global_polar = analysis.calculate_polarization(self.phi)
+        graph = analysis.build_graph(nbs,self.N)
+        digraphs = [graph.subgraph(c).copy() for c in nx.weakly_connected_components(graph)]
+        cluster_polar = np.average([self.phi[self.phi['id'].isin(list(digraph.nodes))] for digraph in digraphs])
+        cluster_size = np.average([digraph.number_of_nodes() for digraph in digraphs])
+
+        return [global_polar,cluster_polar,cluster_size]
 
 def run(tau,noise,informed_ratio,simtime,logname=None,count=1000,firststep=0,k=3,N=2500,size: float=50, speed: float=0.2,
                     noise_informed: float=0, rightdir: float=0., w_informed: float=0.5,tau_info:float=0.039):
@@ -193,23 +203,37 @@ def run(tau,noise,informed_ratio,simtime,logname=None,count=1000,firststep=0,k=3
     params = pd.DataFrame({'tau': tau, 'noise': noise, 'tau_info':tau_info,'informed_ratio': informed_ratio, 'simtime': simtime, 'k': k, 'N': N,'rightdir':rightdir,'size':size,'speed':speed,'noise_informed':noise_informed,'w_informed':w_informed,'count':count,'firststep':firststep,'who_correct':[sim.who_correct]}, index=[0])
     params.to_csv(f'{logname}/metadata.csv', header=True, index=None)
     #write data
-    with open(f"{logname}/data.csv", 'a', newline='') as f:
-        writer = csv.writer(f)
-        steps = int(simtime / sim.dt)  # determine number of steps approximately from discrete stepsize
-        interval = steps // count + 1  # fix count of frames for runs with differing dt. min=1
+    # Open data CSV files
+    with open(f"{logname}/data.csv", 'a', newline='') as data_file, open(f"{logname}/stats.csv", 'a', newline='') as stats_file:
+        data_writer = csv.writer(data_file)
+        stats_writer = csv.writer(stats_file)
+        
+        # Write headers for stats CSV
+        stats_writer.writerow(['step', 'global_polar', 'cluster_polar', 'cluster_size'])
+        
+        steps = int(simtime / sim.dt)  # Determine number of steps approximately from discrete stepsize
+        interval = steps // count + 1  # Fix count of frames for runs with differing dt. min=1
         print(f"total steps: {steps}")
-        pbar = tqdm(desc='for loop', total=steps)  # track progress
-        start_time = time.time()  # measuring runtime
+        
+        pbar = tqdm(desc='for loop', total=steps)  # Track progress
+        start_time = time.time()  # Measure runtime
+        
         for step in range(steps):
-            sim.update_force()  # run simulation
-            if step % interval == 0:  # log outputs
-                a = np.full(sim.N, firststep + step)  # melt steps
+            stats = sim.update_force()  # Run simulation
+            if step % interval == 0:  # Log outputs
+                # Log position and direction data
+                a = np.full(sim.N, firststep + step)  # Melt steps
                 arr = np.column_stack((a,  # col 1: step
                                        np.copy(sim.pos[:, 0]),  # col 2: posx
                                        np.copy(sim.pos[:, 1]),  # col 3: posy
                                        np.copy(sim.phi)))  # col 4: phi
-                writer.writerows(arr)  # Write the data to the file
+                data_writer.writerows(arr)  # Write the data to the file
+                
+                # Log stats data
+                stats_writer.writerow([firststep + step] + stats)  # Write the stats to the file
+                
             pbar.update()
+    
     print(f"finished execution with {np.round(time.time() - start_time, 5)} s")
     pbar.close()
-    return
+    return  
