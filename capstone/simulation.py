@@ -237,6 +237,7 @@ def run(tau,noise,informed_ratio,simtime,logname=None,count=1000,firststep=0,k=3
         stats_writer = csv.writer(stats_file)
         
         # Write headers for stats CSV
+        data_writer.writerow(['step','posx','posy','phi'])
         stats_writer.writerow(['step', 'global_polar', 'cluster_polar', 'cluster_size'])
         
         steps = int(simtime / sim.dt)  # Determine number of steps approximately from discrete stepsize
