@@ -43,23 +43,21 @@ def calc_polarity_step(output,params,step):
     mean = calculate_polarization(phis)
     return mean
 
-def calc_polarity_stat(output,params,logname,plot):
-    """plot the timeseries and calculate the average stat from every 10th opint after 1/4 time burn-in"""
-    means = [] 
-    for s in output['steps'].unique():
-        mean_s = calc_polarity_step(output,params,step=s)
-        means.append(mean_s)
-    
+
+def calc_polarity_stat(output, params, logname, plot, equilibrium_start_step):
+    """Plot the timeseries and calculate the average stat from every 10th point after equilibrium start"""
+    means = [calc_polarity_step(output, params, step=s) for s in output['steps'].unique() if s >= equilibrium_start_step]
+    simulation_times = [output[output['steps'] == s]['simulation_time'].iloc[0] for s in output['steps'].unique() if s >= equilibrium_start_step]
     if plot:
-        fig,ax=plt.subplots()
-        ax.plot(means)
-        ax.set_title(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_polarization")
-        plt.savefig(f"tau{params['tau']}noise{params['noise']}ratio{params['informed_ratio']}tauinfo{params['tau_info']}w{params['w_informed']}_polarization.png")
+        fig, ax = plt.subplots()
+        ax.plot(simulation_times, means, label='Global Polarization')
+        ax.set_title(f"Global Polarization Over Time")
+        ax.set_xlabel("Simulation Time")
+        ax.set_ylabel("Global Polarization")
+        plt.savefig(f"{logname}_polarization.png")
         plt.show()
         ax.clear()
-
-    #if params['simtime']>=10000: #no more
-    return np.average(means[int(len(means)/4):])
+    return np.average(means)
 
 #animation 
 import numpy as np
@@ -151,7 +149,7 @@ def calc_cluster_step(digraphs, output, params, step):
     sizes = []
     for digraph in digraphs:
         members = list(digraph.nodes)
-        
+    
         phis = output[output['id'].isin(members)][output['steps']==step]['phi']
         mean = calculate_polarization(phis)
         means.append(mean)
@@ -167,23 +165,23 @@ def calc_cluster_step(digraphs, output, params, step):
 import warnings
 warnings.filterwarnings("ignore")
 
-def calc_cluster_timeseries(output, params):
-    """calculate cluster size and cluster polarization every 10 steps in the last 1/3 of the series"""
+def calc_cluster_timeseries(output, params, equilibrium_start_step):
+    """Calculate cluster size and cluster polarization every 10 steps after burn-in"""
     mlist = []
     slist = []
     stepping = list(output['steps'].unique())
-    for s in stepping[int(len(stepping)/5)::10]:
-        nbs,pos = recalc_nbs(output=output,params=params,step=s) 
-        graph = build_graph(nbs,params['N'])
-        digraphs= build_clusters(graph)
+    for s in stepping[stepping.index(equilibrium_start_step)::10]:
+        nbs, pos = recalc_nbs(output=output, params=params, step=s)
+        graph = build_graph(nbs, params['N'])
+        digraphs = build_clusters(graph)
         meansavg, sizesavg = calc_cluster_step(digraphs, output, params, s)
         mlist.append(meansavg)
         slist.append(sizesavg)
     return mlist, slist
 
-def calc_cluster_stat(output, params,logname,plot):
+def calc_cluster_stat(output, params,logname,plot,equilibrium_start_step=750):
     """plot timeseries of cluster polar and cluster size, return point averages"""
-    nowm,nows = calc_cluster_timeseries(output, params)
+    nowm,nows = calc_cluster_timeseries(output, params,equilibrium_start_step)
     if plot: 
             fig,ax=plt.subplots()
             ax.clear()
@@ -203,16 +201,15 @@ def calc_cluster_stat(output, params,logname,plot):
             plt.show()
     return np.mean(nowm), np.mean(nows)
 
-def analyze_pipe(logname,plot=False):
-    """save figures and return point statistics for global polar, cluster polar, mean cluster size, and animation"""
-    output,params = load_data_new(logname = logname)
-    clusterpolar,clustersize = calc_cluster_stat(output,params,logname,plot=plot)
-    globalpolar = calc_polarity_stat(output,params,logname,plot=plot) 
+def analyze_pipe(logname, plot=False, equilibrium_start_step=0):
+    """Save figures and return point statistics for global polar, cluster polar, mean cluster size, and animation"""
+    output, params = load_data_new(logname=logname)
+    clusterpolar_ts, clustersize_ts = calc_cluster_stat(output, params, logname, plot=plot, equilibrium_start_step=equilibrium_start_step)
+    globalpolar_ts = calc_polarity_stat(output, params, logname, plot=plot, equilibrium_start_step=equilibrium_start_step)
     if plot:
-        ani(logname,output,params)
-    
-    return [params['tau'],params['tau_info'],params['informed_ratio'],params['w_informed'],globalpolar,clusterpolar,clustersize]
-    #return params,globalpolar,clusterpolar,clustersize
+        ani(logname, output, params)
+
+    return params['tau'], params['tau_info'], params['informed_ratio'], params['w_informed'], globalpolar_ts, clusterpolar_ts, clustersize_ts
 
 
 def dir_to_lognames(directory):
