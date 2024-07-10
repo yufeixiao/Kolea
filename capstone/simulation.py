@@ -209,60 +209,51 @@ class Simulation:
 
         return [global_polar,cluster_polar,cluster_size]
 
-def run(tau,noise,informed_ratio,simtime,logname=None,count=1000,firststep=0,k=3,N=2500,size: float=50, speed: float=0.2,
-                    noise_informed: float=0, rightdir: float=0., w_informed: float=0.5,tau_info:float=0.039):
-    """the main function to run the simulation with user input parameters and save the data for later analysis"""
-    #make simulation
-    sim = Simulation(noise=noise,tau=tau,informed_ratio=informed_ratio,N=N,k=k,size=size,speed=speed,noise_informed=noise_informed,rightdir=rightdir,w_informed=w_informed,tau_info=tau_info)
-    
-    #assign logname
-    if not logname: 
-        string = f'tau{np.round(tau,3)}_noise{np.round(noise,3)}_r{informed_ratio}_simtime{simtime}_k{k}_N{N}_w{w_informed}_tauinfo_{tau_info}_iter1'
-        logname = string.replace('.','d')
-        while os.path.exists(logname): #if logname exists, add a number
-            #print(f"logname exists {logname}, adding iter")
-            logname = logname[:-1] + str(int(logname[-1])+1)
-            #print("logname",logname)
-    #make directory
+def run(tau, noise, informed_ratio, simtime, logname=None, count=1000, firststep=0, k=3, N=2500, size=50, speed=0.2,
+        noise_informed=0, rightdir=0., w_informed=0.5, tau_info=0.039):
+    sim = Simulation(noise=noise, tau=tau, informed_ratio=informed_ratio, N=N, k=k, size=size, speed=speed,
+                     noise_informed=noise_informed, rightdir=rightdir, w_informed=w_informed, tau_info=tau_info)
+
+    if not logname:
+        string = f'tau{np.round(tau, 3)}_noise{np.round(noise, 3)}_r{informed_ratio}_simtime{simtime}_k{k}_N{N}_w{w_informed}_tauinfo_{tau_info}_iter1'
+        logname = string.replace('.', 'd')
+        while os.path.exists(logname):
+            logname = logname[:-1] + str(int(logname[-1]) + 1)
+
     newpath = f'{logname}'
     if not os.path.exists(newpath):
         os.makedirs(newpath)
-    #write parameters to file
-    params = pd.DataFrame({'tau': tau, 'noise': noise, 'tau_info':tau_info,'informed_ratio': informed_ratio, 'simtime': simtime, 'k': k, 'N': N,'rightdir':rightdir,'size':size,'speed':speed,'noise_informed':noise_informed,'w_informed':w_informed,'count':count,'firststep':firststep,'who_correct':[sim.who_correct]}, index=[0])
+
+    params = pd.DataFrame({'tau': tau, 'noise': noise, 'tau_info': tau_info, 'informed_ratio': informed_ratio, 'simtime': simtime,
+                           'k': k, 'N': N, 'rightdir': rightdir, 'size': size, 'speed': speed, 'noise_informed': noise_informed,
+                           'w_informed': w_informed, 'count': count, 'firststep': firststep, 'who_correct': [sim.who_correct]}, index=[0])
     params.to_csv(f'{logname}/metadata.csv', header=True, index=None)
-    #write data
-    # Open data CSV files
+
     with open(f"{logname}/data.csv", 'a', newline='') as data_file, open(f"{logname}/stats.csv", 'a', newline='') as stats_file:
         data_writer = csv.writer(data_file)
         stats_writer = csv.writer(stats_file)
         
-        # Write headers for stats CSV
-        data_writer.writerow(['step','posx','posy','phi'])
-        stats_writer.writerow(['step', 'global_polar', 'cluster_polar', 'cluster_size'])
+        data_writer.writerow(['step', 'simulation_time', 'posx', 'posy', 'phi'])
+        stats_writer.writerow(['step', 'simulation_time', 'global_polar', 'cluster_polar', 'cluster_size'])
         
-        steps = int(simtime / sim.dt)  # Determine number of steps approximately from discrete stepsize
-        interval = steps // count + 1  # Fix count of frames for runs with differing dt. min=1
+        steps = int(simtime / sim.dt)
+        interval = steps // count + 1
         print(f"total steps: {steps}")
-        
-        pbar = tqdm(desc='for loop', total=steps)  # Track progress
-        start_time = time.time()  # Measure runtime
-        
+
+        pbar = tqdm(desc='for loop', total=steps)
+        start_time = time.time()
+
         for step in range(steps):
-            stats = sim.update_force()  # Run simulation
-            if step % interval == 0:  # Log outputs
-                # Log position and direction data
-                a = np.full(sim.N, firststep + step)  # Melt steps
-                arr = np.column_stack((a,  # col 1: step
-                                       np.copy(sim.pos[:, 0]),  # col 2: posx
-                                       np.copy(sim.pos[:, 1]),  # col 3: posy
-                                       np.copy(sim.phi)))  # col 4: phi
-                data_writer.writerows(arr)  # Write the data to the file
-                
-                # Log stats data
-                stats_writer.writerow([firststep + step] + stats)  # Write the stats to the file
-                
+            stats = sim.update_force()
+            simulation_time = step * sim.dt
+            if step % interval == 0:
+                a = np.full(sim.N, firststep + step)
+                arr = np.column_stack((a, np.full(sim.N, simulation_time), np.copy(sim.pos[:, 0]), np.copy(sim.pos[:, 1]), np.copy(sim.phi)))
+                data_writer.writerows(arr)
+                stats_writer.writerow([firststep + step, simulation_time] + stats)
             pbar.update()
-    
-    print(f"finished execution with {np.round(time.time() - start_time, 5)} s")
-    pbar.close()
-    return  
+
+        print(f"finished execution with {np.round(time.time() - start_time, 5)} s")
+        pbar.close()
+    return
+
